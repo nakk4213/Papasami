@@ -1,0 +1,22 @@
+import { defineConfig, devices } from "@playwright/test";
+
+export default defineConfig({
+  testDir: "./tests/e2e",
+  fullyParallel: false,
+  workers: 1,
+  reporter: "html",
+  use: {
+    baseURL: "http://127.0.0.1:3000",
+    trace: "on-first-retry"
+  },
+  projects: [
+    { name: "chromium", use: { ...devices["Desktop Chrome"] } },
+    { name: "mobile", use: { ...devices["Pixel 7"] } }
+  ],
+  webServer: {
+    command: "cmd /c \"set AUTH_SECRET=playwright-test-secret-32-characters&& set NEXT_PUBLIC_APP_URL=http://127.0.0.1:3000&& npm.cmd run dev\"",
+    url: "http://127.0.0.1:3000",
+    reuseExistingServer: true,
+    timeout: 120_000
+  }
+});
