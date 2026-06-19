@@ -23,7 +23,7 @@ export async function POST(req: Request) {
           provider: PaymentProvider.STRIPE,
           status: PaymentStatus.SUCCEEDED,
           amount: Number(session.amount_total ?? 0) / 100,
-          currency: session.currency?.toUpperCase() ?? "USD",
+          currency: session.currency?.toUpperCase() ?? "GHS",
           reference: session.id,
           providerIntent: session.payment_intent?.toString()
         }

@@ -5,6 +5,7 @@ import { PublicShell } from "@/components/public-shell";
 import { Button } from "@/components/ui/button";
 import { Card, Section } from "@/components/ui/card";
 import { packages } from "@/lib/catalog";
+import { formatCurrency } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Pricing" };
 
@@ -18,7 +19,7 @@ export default function PricingPage() {
           {packages.map((pack) => (
             <Card key={pack.name}>
               <h2 className="text-2xl font-bold">{pack.name}</h2>
-              <div className="mt-4 text-5xl font-black">${pack.price}</div>
+              <div className="mt-4 text-5xl font-black">{formatCurrency(pack.price)}</div>
               <p className="text-sm text-muted-foreground">{pack.cadence}</p>
               <ul className="mt-6 grid gap-3 text-sm text-muted-foreground">
                 {pack.features.map((feature) => (

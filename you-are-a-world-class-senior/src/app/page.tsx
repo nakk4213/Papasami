@@ -7,6 +7,7 @@ import { Card, Section } from "@/components/ui/card";
 import { Reveal } from "@/components/motion";
 import { NewsletterForm } from "@/components/forms";
 import { portfolioItems, serviceCategories } from "@/lib/catalog";
+import { formatCurrency } from "@/lib/utils";
 
 export default function HomePage() {
   return (
@@ -18,13 +19,13 @@ export default function HomePage() {
             <div>
               <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-muted-foreground">
                 <Sparkles className="size-4 text-primary" />
-                Premium design marketplace for serious brands
+                Premium design studio for serious brands
               </div>
               <h1 className="mt-6 max-w-4xl text-5xl font-black leading-tight tracking-normal sm:text-6xl lg:text-7xl">
                 Papa Sami Studio
               </h1>
               <p className="mt-6 max-w-2xl text-lg leading-8 text-muted-foreground">
-                Browse polished work, request custom graphics, pay securely, message designers, track delivery, and manage every creative asset from one luxury-grade dashboard.
+                Browse polished work, request custom graphics, pay securely, message Papa Sami Studio, track delivery, and manage every creative asset from one luxury-grade dashboard.
               </p>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <Button asChild size="lg">
@@ -100,7 +101,7 @@ export default function HomePage() {
           {[
             [UploadCloud, "Request", "Submit your brief, references, package, budget, and deadline."],
             [ShieldCheck, "Pay", "Stripe and Paystack checkout protect every transaction."],
-            [MessageSquare, "Collaborate", "Message designers, review proofs, and request revisions."],
+            [MessageSquare, "Collaborate", "Message Papa Sami Studio, review proofs, and request revisions."],
             [Clock, "Receive", "Download final files, invoices, and production assets."]
           ].map(([Icon, title, body]) => (
             <Card key={String(title)}>
@@ -125,9 +126,9 @@ export default function HomePage() {
         </div>
         <div className="grid gap-5 md:grid-cols-3">
           {[
-            ["Flyer Design", "$49+", "Church, business, political, event, and social media flyers."],
-            ["Logo Design", "$129+", "Clean brand marks for businesses, churches, campaigns, and creators."],
-            ["Brand Kit", "$299+", "Logo system, colors, typography, social templates, and launch assets."]
+            ["Flyer Design", `${formatCurrency(49)}+`, "Church, business, political, event, and social media flyers."],
+            ["Logo Design", `${formatCurrency(129)}+`, "Clean brand marks for businesses, churches, campaigns, and creators."],
+            ["Brand Kit", `${formatCurrency(299)}+`, "Logo system, colors, typography, social templates, and launch assets."]
           ].map(([title, price, body]) => (
             <Card key={title}>
               <h3 className="text-2xl font-bold">{title}</h3>
@@ -142,30 +143,19 @@ export default function HomePage() {
       </Section>
 
       <Section>
-        <div className="grid gap-6 lg:grid-cols-[.8fr_1.2fr]">
-          <Card>
-            <BarChart3 className="size-7 text-primary" />
-            <h2 className="mt-4 text-3xl font-bold">Built-in analytics from first click to final delivery.</h2>
-            <p className="mt-4 leading-7 text-muted-foreground">Clients see project progress, payments, files, messages, revisions, and delivery history in one polished workspace.</p>
-          </Card>
-          <Card>
-            <h3 className="text-xl font-semibold">FAQ</h3>
-            <div className="mt-4 grid gap-4">
-              {["Can I choose a designer?", "Are source files included?", "Do you support refunds?", "Can I track my project?"].map((question) => (
-                <details key={question} className="rounded-xl border border-white/10 p-4">
-                  <summary className="cursor-pointer font-medium">{question}</summary>
-                  <p className="mt-3 text-sm leading-6 text-muted-foreground">Yes. The workflow supports managed requests, secure payments, revisions, files, invoices, messages, and delivery tracking.</p>
-                </details>
-              ))}
-            </div>
-          </Card>
-        </div>
+        <Card className="grid gap-4 md:grid-cols-[auto_1fr] md:items-start">
+          <BarChart3 className="size-7 text-primary" />
+          <div>
+            <h2 className="text-3xl font-bold">Built-in analytics from first click to final delivery.</h2>
+            <p className="mt-4 max-w-3xl leading-7 text-muted-foreground">Clients see project progress, payments, files, messages, revisions, and delivery history in one polished workspace.</p>
+          </div>
+        </Card>
       </Section>
 
       <Section>
         <Card className="grid gap-6 md:grid-cols-[.9fr_1.1fr] md:items-center">
           <div>
-            <h2 className="text-3xl font-bold">Get design drops, launch ideas, and marketplace updates.</h2>
+            <h2 className="text-3xl font-bold">Get design drops, launch ideas, and studio updates.</h2>
             <p className="mt-3 text-muted-foreground">No noise. Just useful creative operations notes.</p>
           </div>
           <NewsletterForm />

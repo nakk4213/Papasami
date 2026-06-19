@@ -127,7 +127,7 @@ async function main() {
   await prisma.setting.upsert({
     where: { key: "site" },
     update: {},
-    create: { key: "site", group: "global", value: { maintenance: false, brand: "Papa Sami Studio", currency: "USD" } }
+    create: { key: "site", group: "global", value: { maintenance: false, brand: "Papa Sami Studio", currency: "GHS" } }
   });
 
   console.log(`Seeded Papa Sami Studio with admin ${admin.email}`);

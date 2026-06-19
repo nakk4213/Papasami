@@ -1,13 +1,39 @@
 "use server";
 
 import { OrderStatus, RoleName, TicketStatus } from "@prisma/client";
+import { mkdir, writeFile } from "fs/promises";
 import { revalidatePath } from "next/cache";
+import path from "path";
+import { createWatermarkedPreview, saveUploadedFile } from "@/lib/delivery";
+import { uploadFileToCloudinary } from "@/lib/cloudinary";
 import { prisma } from "@/lib/db";
+import { sendEmail } from "@/lib/email";
+import { deleteLocalPortfolioItem, saveLocalPortfolioItem } from "@/lib/portfolio-store";
 import { requireRole, sanitizeText } from "@/lib/security";
 import { slugify } from "@/lib/utils";
 
 async function requireAdmin() {
   return requireRole(["ADMIN"]);
+}
+
+async function savePortfolioImage(file: File | null) {
+  if (!file || file.size === 0) return null;
+  if (!file.type.startsWith("image/")) return null;
+  if (file.size > 10 * 1024 * 1024) return null;
+
+  const cloudUpload = await uploadFileToCloudinary(file, "papa-sami-studio/portfolio");
+  if (cloudUpload?.secureUrl) return cloudUpload.secureUrl;
+
+  const uploadDir = path.join(process.cwd(), "public", "uploads", "portfolio");
+  await mkdir(uploadDir, { recursive: true });
+
+  const extension = path.extname(file.name).toLowerCase() || ".png";
+  const safeName = slugify(path.basename(file.name, extension)) || "portfolio";
+  const fileName = `${Date.now()}-${safeName}${extension}`;
+  const buffer = Buffer.from(await file.arrayBuffer());
+
+  await writeFile(path.join(uploadDir, fileName), buffer);
+  return `/uploads/portfolio/${fileName}`;
 }
 
 export async function saveServiceAction(formData: FormData) {
@@ -69,23 +95,63 @@ export async function savePackageAction(formData: FormData) {
 
 export async function savePortfolioAction(formData: FormData) {
   await requireAdmin();
+  const id = String(formData.get("id") ?? "").trim();
   const title = sanitizeText(String(formData.get("title") ?? ""));
   const category = sanitizeText(String(formData.get("category") ?? ""));
   const description = sanitizeText(String(formData.get("description") ?? ""));
   const imageUrl = String(formData.get("imageUrl") ?? "").trim();
+  const imageFile = formData.get("imageFile");
+  const uploadedImage = await savePortfolioImage(imageFile instanceof File ? imageFile : null);
   const tags = String(formData.get("tags") ?? "")
     .split(",")
     .map((item) => sanitizeText(item))
     .filter(Boolean);
   const featured = formData.get("featured") === "on";
+  const published = formData.get("published") === "on";
 
-  if (!title || !category || !description || !imageUrl) return;
+  if (!title || !category || !description) return;
 
-  await prisma.portfolioItem.upsert({
-    where: { slug: slugify(title) },
-    update: { title, category, description, imageUrl, tags, featured, published: true },
-    create: { title, slug: slugify(title), category, description, imageUrl, tags, featured, published: true }
-  });
+  try {
+    if (id) {
+      const existing = await prisma.portfolioItem.findUnique({ where: { id } });
+      const finalImageUrl = uploadedImage ?? (imageUrl || existing?.imageUrl);
+      if (!existing || !finalImageUrl) throw new Error("Portfolio database update unavailable");
+
+      await prisma.portfolioItem.update({
+        where: { id },
+        data: { title, category, description, imageUrl: finalImageUrl, tags, featured, published }
+      });
+      await prisma.auditLog.create({ data: { action: "PORTFOLIO_UPDATED", entity: "PortfolioItem", entityId: id } });
+    } else {
+      const finalImageUrl = uploadedImage ?? imageUrl;
+      if (!finalImageUrl) return;
+
+      await prisma.portfolioItem.create({
+        data: { title, slug: slugify(`${title}-${Date.now()}`), category, description, imageUrl: finalImageUrl, tags, featured, published }
+      });
+      await prisma.auditLog.create({ data: { action: "PORTFOLIO_CREATED", entity: "PortfolioItem", entityId: title } });
+    }
+  } catch {
+    const finalImageUrl = uploadedImage ?? imageUrl;
+    if (!finalImageUrl) return;
+    await saveLocalPortfolioItem({ id: id || undefined, title, category, description, imageUrl: finalImageUrl, tags, featured, published });
+  }
+
+  revalidatePath("/admin/portfolio");
+  revalidatePath("/portfolio");
+}
+
+export async function deletePortfolioAction(formData: FormData) {
+  await requireAdmin();
+  const id = String(formData.get("id") ?? "").trim();
+  if (!id) return;
+
+  try {
+    await prisma.portfolioItem.delete({ where: { id } });
+    await prisma.auditLog.create({ data: { action: "PORTFOLIO_DELETED", entity: "PortfolioItem", entityId: id } });
+  } catch {
+    await deleteLocalPortfolioItem(id);
+  }
 
   revalidatePath("/admin/portfolio");
   revalidatePath("/portfolio");
@@ -108,6 +174,116 @@ export async function updateOrderStatusAction(formData: FormData) {
   });
 
   revalidatePath("/admin/orders");
+}
+
+export async function uploadCompletedDesignAction(formData: FormData) {
+  const admin = await requireAdmin();
+  const orderId = String(formData.get("orderId") ?? "");
+  const note = sanitizeText(String(formData.get("note") ?? "Watermarked preview uploaded for client review"));
+  const file = formData.get("deliverable");
+
+  if (!orderId || !(file instanceof File) || file.size === 0) return;
+  if (file.size > 50 * 1024 * 1024) return;
+
+  const order = await prisma.order.findUnique({ where: { id: orderId }, include: { client: true } });
+  if (!order) return;
+
+  const upload = await saveUploadedFile(file, `deliveries/${order.id}/originals`);
+  const isImage = file.type.startsWith("image/") || upload.resourceType === "image";
+  const previewUrl = isImage ? await createWatermarkedPreview(upload.secureUrl, order.id, file.name) : null;
+
+  await prisma.assetFile.create({
+    data: {
+      ownerId: admin.id,
+      orderId: order.id,
+      publicId: upload.publicId,
+      url: upload.url,
+      secureUrl: upload.secureUrl,
+      previewUrl,
+      previewSecureUrl: previewUrl,
+      resourceType: upload.resourceType,
+      bytes: upload.bytes,
+      mimeType: file.type || "application/octet-stream",
+      kind: "DELIVERABLE",
+      downloadAuthorized: false
+    }
+  });
+
+  await prisma.order.update({
+    where: { id: order.id },
+    data: {
+      status: "IN_REVIEW",
+      events: { create: { status: "IN_REVIEW", note } }
+    }
+  });
+
+  await prisma.notification.create({
+    data: {
+      userId: order.clientId,
+      type: "ORDER",
+      title: "Design preview ready",
+      body: `${order.title} is ready for review. The original download will be unlocked after approval.`,
+      href: `/dashboard/client/projects/${order.id}`
+    }
+  });
+
+  await sendEmail({
+    to: order.client.email,
+    subject: `Design preview ready: ${order.orderNumber}`,
+    html: `<p>Your design preview is ready.</p><p>The original file download will be unlocked by Papa Sami Studio after approval.</p><p><a href="${process.env.NEXT_PUBLIC_APP_URL ?? "http://127.0.0.1:3000"}/dashboard/client/projects/${order.id}">Open project workspace</a></p>`
+  });
+
+  await prisma.auditLog.create({ data: { actorId: admin.id, action: "DELIVERABLE_UPLOADED", entity: "Order", entityId: order.id } });
+  revalidatePath("/admin/orders");
+  revalidatePath("/dashboard/client/orders");
+  revalidatePath(`/dashboard/client/projects/${order.id}`);
+}
+
+export async function authorizeDeliverableDownloadAction(formData: FormData) {
+  const admin = await requireAdmin();
+  const fileId = String(formData.get("fileId") ?? "");
+  if (!fileId) return;
+
+  const file = await prisma.assetFile.findUnique({ where: { id: fileId }, include: { order: { include: { client: true } } } });
+  if (!file || file.kind !== "DELIVERABLE" || !file.order) return;
+
+  await prisma.assetFile.update({
+    where: { id: file.id },
+    data: {
+      downloadAuthorized: true,
+      authorizedAt: new Date(),
+      authorizedById: admin.id
+    }
+  });
+
+  await prisma.notification.create({
+    data: {
+      userId: file.order.clientId,
+      type: "ORDER",
+      title: "Final design download unlocked",
+      body: `${file.order.title} is now available for download.`,
+      href: `/dashboard/client/projects/${file.order.id}`
+    }
+  });
+
+  await prisma.orderEvent.create({
+    data: {
+      orderId: file.order.id,
+      status: file.order.status,
+      note: "Original design download authorized by admin"
+    }
+  });
+
+  await sendEmail({
+    to: file.order.client.email,
+    subject: `Download unlocked: ${file.order.orderNumber}`,
+    html: `<p>Your original design file is now available.</p><p><a href="${process.env.NEXT_PUBLIC_APP_URL ?? "http://127.0.0.1:3000"}/dashboard/client/projects/${file.order.id}">Download your file</a></p>`
+  });
+
+  await prisma.auditLog.create({ data: { actorId: admin.id, action: "DELIVERABLE_AUTHORIZED", entity: "AssetFile", entityId: file.id } });
+  revalidatePath("/admin/orders");
+  revalidatePath("/dashboard/client/orders");
+  revalidatePath(`/dashboard/client/projects/${file.order.id}`);
 }
 
 export async function assignOrderAction(formData: FormData) {

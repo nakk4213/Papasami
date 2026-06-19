@@ -13,7 +13,7 @@ export function SiteFooter() {
             Papa Sami Studio
           </div>
           <p className="mt-4 max-w-md text-sm leading-6 text-muted-foreground">
-            Premium graphic design marketplace for polished brands, campaigns, ministries, startups, and creators.
+            Premium graphic design studio for polished brands, campaigns, ministries, startups, and creators.
           </p>
         </div>
         <div>

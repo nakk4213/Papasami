@@ -264,7 +264,7 @@ model Payment {
   provider       PaymentProvider
   status         PaymentStatus   @default(PENDING)
   amount         Decimal         @db.Decimal(10, 2)
-  currency       String          @default("USD")
+  currency       String          @default("GHS")
   reference      String          @unique
   providerIntent String?
   receiptUrl     String?
@@ -307,11 +307,16 @@ model AssetFile {
   publicId     String
   url          String
   secureUrl    String
+  previewUrl   String?
+  previewSecureUrl String?
   resourceType String
   bytes        Int
   mimeType     String
   kind         FileKind
   checksum     String?
+  downloadAuthorized Boolean @default(false)
+  authorizedAt DateTime?
+  authorizedById String?
   owner        User?     @relation(fields: [ownerId], references: [id])
   order        Order?    @relation(fields: [orderId], references: [id])
   message      Message?  @relation(fields: [messageId], references: [id])

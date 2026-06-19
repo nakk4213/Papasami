@@ -7,7 +7,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import path from "path";
 import { auth, signIn, signOut } from "@/auth";
+import { uploadFileToCloudinary } from "@/lib/cloudinary";
 import { prisma } from "@/lib/db";
+import { createWatermarkedPreview } from "@/lib/delivery";
 import { sendEmail } from "@/lib/email";
 import { hasDatabaseUrl } from "@/lib/env";
 import { clientIp, rateLimit, sanitizeText } from "@/lib/security";
@@ -20,6 +22,24 @@ function hashToken(token: string) {
   return crypto.createHash("sha256").update(token).digest("hex");
 }
 
+async function databaseIsReady() {
+  if (!hasDatabaseUrl()) return false;
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function localRoleForEmail(email: string) {
+  if (process.env.NODE_ENV === "production") return null;
+  if (email === "admin@papasamistudio.local") return "ADMIN";
+  if (email === "designer@papasamistudio.local") return "DESIGNER";
+  if (email === "client@papasamistudio.local") return "CLIENT";
+  return null;
+}
+
 export async function registerAction(_: unknown, formData: FormData): Promise<ActionResult> {
   const ip = await clientIp();
   await rateLimit(`register:${ip}`, 5, 60_000);
@@ -29,7 +49,7 @@ export async function registerAction(_: unknown, formData: FormData): Promise<Ac
     email: formData.get("email"),
     password: formData.get("password")
   });
-  if (!parsed.success) return { ok: false, message: "Please check your registration details." };
+    if (!parsed.success) return { ok: false, message: "Password must be at least 8 characters and include 1 uppercase letter and 1 number." };
 
   const exists = await prisma.user.findUnique({ where: { email: parsed.data.email } });
   if (exists) return { ok: false, message: "An account already exists for this email." };
@@ -61,14 +81,17 @@ export async function registerAction(_: unknown, formData: FormData): Promise<Ac
 
 export async function loginAction(_: unknown, formData: FormData): Promise<ActionResult> {
   await rateLimit(`login:${await clientIp()}`, 10, 60_000);
-  if (!hasDatabaseUrl()) {
-    return { ok: false, message: "Database is not connected yet. Add DATABASE_URL, then run db:push and db:seed before logging in." };
+  const email = String(formData.get("email") ?? "");
+  const localRole = localRoleForEmail(email);
+  const databaseReady = await databaseIsReady();
+  if (!databaseReady && !localRole) {
+    return { ok: false, message: "Login is blocked because the database is not reachable. Check the PostgreSQL connection, then run db:push and db:seed." };
   }
 
   try {
-    const email = String(formData.get("email") ?? "");
-    const user = await prisma.user.findUnique({ where: { email }, select: { role: true } });
-    const redirectTo = user?.role === "ADMIN" ? "/admin" : user?.role === "DESIGNER" ? "/dashboard/designer" : "/dashboard/client";
+      const user = databaseReady ? await prisma.user.findUnique({ where: { email }, select: { role: true } }) : null;
+      const role = user?.role ?? localRole;
+      const redirectTo = role === "ADMIN" ? "/admin" : role === "DESIGNER" ? "/dashboard/designer" : "/dashboard/client";
 
     await signIn("credentials", {
       email,
@@ -85,16 +108,19 @@ export async function loginAction(_: unknown, formData: FormData): Promise<Actio
 
 export async function clientLoginAction(_: unknown, formData: FormData): Promise<ActionResult> {
   await rateLimit(`client-login:${await clientIp()}`, 10, 60_000);
-  if (!hasDatabaseUrl()) {
-    return { ok: false, message: "Database is not connected yet." };
+  const email = String(formData.get("email") ?? "");
+  const localRole = localRoleForEmail(email);
+  const databaseReady = await databaseIsReady();
+  if (!databaseReady && localRole !== "CLIENT") {
+    return { ok: false, message: "Client login is blocked because the database is not reachable. Check the PostgreSQL connection, then run db:push and db:seed." };
   }
 
   try {
-    const email = String(formData.get("email") ?? "");
-    const user = await prisma.user.findUnique({ where: { email }, select: { role: true } });
-    if (!user || user.role !== "CLIENT") {
-      return { ok: false, message: "This login is for client accounts only." };
-    }
+      const user = databaseReady ? await prisma.user.findUnique({ where: { email }, select: { role: true } }) : null;
+      const role = user?.role ?? localRole;
+      if (role !== "CLIENT") {
+        return { ok: false, message: "This login is for client accounts only." };
+      }
 
     await signIn("credentials", {
       email,
@@ -269,6 +295,24 @@ async function persistOrderUploads(orderId: string, ownerId: string, entries: Fo
 
   for (const file of files) {
     if (file.size > 10 * 1024 * 1024) continue;
+    const cloudUpload = await uploadFileToCloudinary(file, `papa-sami-studio/orders/${orderId}`);
+    if (cloudUpload) {
+      await prisma.assetFile.create({
+        data: {
+          ownerId,
+          orderId,
+          publicId: cloudUpload.publicId,
+          url: cloudUpload.url,
+          secureUrl: cloudUpload.secureUrl,
+          resourceType: cloudUpload.resourceType,
+          bytes: cloudUpload.bytes,
+          mimeType: file.type || "application/octet-stream",
+          kind: "REFERENCE"
+        }
+      });
+      continue;
+    }
+
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "-");
     const publicId = `${Date.now()}-${safeName}`;
     const target = path.join(uploadRoot, publicId);
@@ -357,6 +401,8 @@ export async function uploadDeliverableAction(formData: FormData) {
   const order = await prisma.order.findFirst({ where: { id: orderId, designerId: designer.id }, include: { client: true } });
   if (!order) return;
 
+  const previewUrl = await createWatermarkedPreview(url, order.id, `deliverable-${order.orderNumber}`);
+
   await prisma.assetFile.create({
     data: {
       ownerId: designer.id,
@@ -364,10 +410,13 @@ export async function uploadDeliverableAction(formData: FormData) {
       publicId: `deliverable-${order.orderNumber}-${Date.now()}`,
       url,
       secureUrl: url,
+      previewUrl,
+      previewSecureUrl: previewUrl,
       resourceType: "image",
       bytes: 0,
       mimeType: "external/url",
-      kind: "DELIVERABLE"
+      kind: "DELIVERABLE",
+      downloadAuthorized: false
     }
   });
   await prisma.order.update({

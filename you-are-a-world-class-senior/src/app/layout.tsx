@@ -8,10 +8,10 @@ const inter = Inter({ subsets: ["latin"], display: "swap" });
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"),
   title: {
-    default: "Papa Sami Studio | Premium Graphic Design Marketplace",
+    default: "Papa Sami Studio | Premium Graphic Design Studio",
     template: "%s | Papa Sami Studio"
   },
-  description: "Order premium graphic design, manage projects, message designers, and track delivery from one polished marketplace.",
+  description: "Order premium graphic design, manage projects, message Papa Sami Studio, and track delivery from one polished workspace.",
   applicationName: "Papa Sami Studio",
   alternates: { canonical: "/" },
   icons: {
@@ -29,7 +29,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "Papa Sami Studio",
-    description: "Premium graphic design marketplace."
+    description: "Premium graphic design studio."
   }
 };
 

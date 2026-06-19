@@ -9,6 +9,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 
 const nav = [
+  ["Home", "/"],
   ["Services", "/services"],
   ["Portfolio", "/portfolio"],
   ["About", "/about"],
@@ -24,11 +25,11 @@ export function SiteHeader() {
     <motion.header
       initial={{ opacity: 0, y: -18 }}
       animate={{ opacity: 1, y: 0 }}
-      className="sticky top-0 z-50 border-b border-white/10 bg-[#050714]/80 backdrop-blur-xl"
+      className="sticky top-0 z-50 border-b border-amber-200/10 bg-[#050302]/85 backdrop-blur-xl"
     >
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <Link href="/" className="flex items-center gap-2 font-bold tracking-wide">
-          <span className="grid size-10 place-items-center rounded-xl bg-black shadow-glow">
+          <span className="grid size-10 place-items-center rounded-xl border border-amber-200/15 bg-black shadow-glow">
             <Image src="/papa-sami-logo.png" alt="Papa Sami Studio logo" width={34} height={34} className="object-contain" priority />
           </span>
           Papa Sami Studio
@@ -56,7 +57,7 @@ export function SiteHeader() {
         </Button>
       </div>
       {open ? (
-        <div className="border-t border-white/10 bg-[#050714] px-4 py-4 md:hidden">
+        <div className="border-t border-amber-200/10 bg-[#050302] px-4 py-4 md:hidden">
           <nav className="grid gap-2 text-sm text-muted-foreground">
             {nav.map(([label, href]) => (
               <Link key={href} href={href} className="rounded-xl px-3 py-2 transition hover:bg-white/10 hover:text-white" onClick={() => setOpen(false)}>

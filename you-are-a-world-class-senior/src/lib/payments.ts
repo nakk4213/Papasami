@@ -15,7 +15,7 @@ export async function createStripeCheckout(input: { amount: number; orderId: str
       {
         quantity: 1,
         price_data: {
-          currency: "usd",
+          currency: "ghs",
           unit_amount: Math.round(input.amount * 100),
           product_data: { name: input.title }
         }
@@ -38,6 +38,7 @@ export async function initializePaystack(input: { amount: number; orderId: strin
     body: JSON.stringify({
       email: input.email,
       amount: Math.round(input.amount * 100),
+      currency: "GHS",
       metadata: { orderId: input.orderId },
       callback_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/client/payments`
     })

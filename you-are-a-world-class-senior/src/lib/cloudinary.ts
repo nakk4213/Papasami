@@ -20,3 +20,48 @@ export function signedUploadSignature(folder = "designcraft") {
     apiKey: process.env.CLOUDINARY_API_KEY
   };
 }
+
+export function hasCloudinaryConfig() {
+  return Boolean(process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET);
+}
+
+export async function uploadFileToCloudinary(file: File, folder = "papa-sami-studio") {
+  if (!hasCloudinaryConfig()) return null;
+
+  const buffer = Buffer.from(await file.arrayBuffer());
+  return new Promise<{
+    publicId: string;
+    url: string;
+    secureUrl: string;
+    resourceType: string;
+    bytes: number;
+    format?: string;
+  }>((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      {
+        folder,
+        resource_type: "auto",
+        use_filename: true,
+        unique_filename: true,
+        overwrite: false
+      },
+      (error, result) => {
+        if (error || !result) {
+          reject(error ?? new Error("Cloudinary upload failed"));
+          return;
+        }
+
+        resolve({
+          publicId: result.public_id,
+          url: result.url,
+          secureUrl: result.secure_url,
+          resourceType: result.resource_type,
+          bytes: result.bytes,
+          format: result.format
+        });
+      }
+    );
+
+    stream.end(buffer);
+  }).catch(() => null);
+}

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { auth } from "@/auth";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { approveOrderAction, requestRevisionAction } from "@/app/actions";
 import { Button } from "@/components/ui/button";
@@ -8,7 +9,15 @@ import { hasDatabaseUrl } from "@/lib/env";
 import { formatCurrency } from "@/lib/utils";
 
 export default async function ClientOrdersPage() {
-  const orders = hasDatabaseUrl() ? await prisma.order.findMany({ include: { service: true, designer: true, files: true, events: { orderBy: { createdAt: "desc" }, take: 5 } }, orderBy: { createdAt: "desc" }, take: 20 }).catch(() => []) : [];
+  const session = await auth();
+  const orders = session?.user?.email && hasDatabaseUrl()
+    ? await prisma.order.findMany({
+        where: { client: { email: session.user.email } },
+        include: { service: true, files: true, events: { orderBy: { createdAt: "desc" }, take: 5 } },
+        orderBy: { createdAt: "desc" },
+        take: 20
+      }).catch(() => [])
+    : [];
   return (
     <DashboardShell role="CLIENT">
       <div className="mb-6">
@@ -25,7 +34,7 @@ export default async function ClientOrdersPage() {
                   <p className="text-xs uppercase tracking-[0.2em] text-primary">{order.orderNumber}</p>
                   <h2 className="mt-2 text-2xl font-bold">{order.title}</h2>
                   <p className="mt-2 text-sm text-muted-foreground">{order.service.name} - {formatCurrency(String(order.budget))} - {order.status}</p>
-                  <p className="mt-1 text-sm text-muted-foreground">Designer: {order.designer?.name ?? "Not assigned yet"}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Handled by: Papa Sami Studio</p>
                   <Link href={`/dashboard/client/projects/${order.id}`} className="mt-3 inline-flex text-sm font-semibold text-primary">Open project workspace</Link>
                 </div>
                 <div className="rounded-xl border border-white/10 px-4 py-3 text-sm text-muted-foreground">
@@ -44,9 +53,30 @@ export default async function ClientOrdersPage() {
               <div className="mt-5 grid gap-3">
                 <h3 className="font-semibold">Deliverables</h3>
                 {deliverables.length ? deliverables.map((file) => (
-                  <a key={file.id} href={file.secureUrl} target="_blank" rel="noreferrer" className="rounded-xl border border-white/10 bg-white/[0.03] p-3 text-sm text-primary">
-                    Open final design
-                  </a>
+                  <div key={file.id} className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                    <div className="grid gap-3 md:grid-cols-[160px_1fr_auto] md:items-center">
+                      <div className="overflow-hidden rounded-lg border border-white/10 bg-black/30">
+                        {file.previewSecureUrl ? (
+                          <img src={file.previewSecureUrl} alt="Watermarked design preview" className="aspect-[4/3] w-full object-cover" />
+                        ) : (
+                          <div className="flex aspect-[4/3] items-center justify-center px-3 text-center text-xs text-muted-foreground">Preview pending</div>
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-white">Watermarked preview</p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {file.downloadAuthorized ? "Original file is unlocked." : "Original file is locked until Papa Sami Studio authorizes download."}
+                        </p>
+                      </div>
+                      {file.downloadAuthorized ? (
+                        <Button asChild size="sm">
+                          <a href={file.secureUrl} target="_blank" rel="noreferrer">Download original</a>
+                        </Button>
+                      ) : (
+                        <Button size="sm" variant="outline" disabled>Download locked</Button>
+                      )}
+                    </div>
+                  </div>
                 )) : <p className="text-sm text-muted-foreground">No deliverables uploaded yet.</p>}
               </div>
               {deliverables.length ? (

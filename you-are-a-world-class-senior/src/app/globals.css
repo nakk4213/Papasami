@@ -3,23 +3,23 @@
 @tailwind utilities;
 
 :root {
-  --background: 230 44% 5%;
-  --foreground: 220 36% 96%;
-  --card: 232 36% 9%;
-  --card-foreground: 220 36% 96%;
-  --primary: 262 90% 66%;
+  --background: 30 18% 4%;
+  --foreground: 35 35% 96%;
+  --card: 28 22% 8%;
+  --card-foreground: 35 35% 96%;
+  --primary: 0 88% 49%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 222 72% 16%;
-  --secondary-foreground: 220 36% 96%;
-  --muted: 232 24% 16%;
-  --muted-foreground: 226 16% 72%;
-  --accent: 217 91% 60%;
-  --accent-foreground: 0 0% 100%;
-  --destructive: 0 72% 51%;
+  --secondary: 34 47% 15%;
+  --secondary-foreground: 35 35% 96%;
+  --muted: 28 18% 14%;
+  --muted-foreground: 33 13% 72%;
+  --accent: 35 95% 57%;
+  --accent-foreground: 28 30% 5%;
+  --destructive: 0 88% 49%;
   --destructive-foreground: 0 0% 100%;
-  --border: 232 26% 22%;
-  --input: 232 26% 22%;
-  --ring: 262 90% 66%;
+  --border: 28 22% 20%;
+  --input: 28 22% 20%;
+  --ring: 0 88% 49%;
   --radius: 0.85rem;
 }
 
@@ -34,21 +34,21 @@ html {
 body {
   min-height: 100vh;
   background:
-    radial-gradient(circle at 20% 0%, rgba(124, 58, 237, 0.22), transparent 28rem),
-    radial-gradient(circle at 80% 10%, rgba(37, 99, 235, 0.2), transparent 28rem),
-    linear-gradient(135deg, #02030a 0%, #080b1f 48%, #030712 100%);
+    radial-gradient(circle at 16% 4%, rgba(240, 150, 42, 0.22), transparent 27rem),
+    radial-gradient(circle at 84% 12%, rgba(230, 0, 18, 0.14), transparent 24rem),
+    linear-gradient(135deg, #030302 0%, #0b0705 46%, #030403 100%);
   color: hsl(var(--foreground));
   font-feature-settings: "rlig" 1, "calt" 1;
 }
 
 ::selection {
-  background: rgba(124, 58, 237, 0.5);
+  background: rgba(230, 0, 18, 0.58);
 }
 
 .glass {
-  background: rgba(10, 14, 32, 0.68);
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.28);
+  background: rgba(18, 13, 9, 0.76);
+  border: 1px solid rgba(255, 241, 219, 0.1);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.34);
   backdrop-filter: blur(18px);
 }
 

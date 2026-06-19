@@ -8,9 +8,12 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { prisma } from "@/lib/db";
 import { hasDatabaseUrl } from "@/lib/env";
+import { getAdminPortfolioItems } from "@/lib/portfolio-store";
 import { formatCurrency } from "@/lib/utils";
 import {
+  authorizeDeliverableDownloadAction,
   assignOrderAction,
+  deletePortfolioAction,
   savePackageAction,
   savePortfolioAction,
   saveBlogPostAction,
@@ -21,10 +24,11 @@ import {
   sendAnnouncementAction,
   updateContactStatusAction,
   updateOrderStatusAction,
-  updateUserAction
+  updateUserAction,
+  uploadCompletedDesignAction
 } from "@/app/admin/actions";
 
-const selectClass = "h-11 rounded-xl border border-white/10 bg-[#0c1024] px-4 text-sm text-white";
+const selectClass = "h-11 rounded-xl border border-white/10 bg-[#130d09] px-4 text-sm text-white";
 
 export default async function AdminModulePage({ params }: { params: Promise<{ module: string }> }) {
   const { module } = await params;
@@ -99,7 +103,7 @@ async function UsersAdmin() {
                 {Object.values(RoleName).map((role) => <option key={role} value={role}>{role}</option>)}
               </select>
               <label className="flex items-center gap-2 text-sm text-muted-foreground">
-                <input name="isActive" type="checkbox" defaultChecked={user.isActive} className="size-4 accent-violet-500" />
+                <input name="isActive" type="checkbox" defaultChecked={user.isActive} className="size-4 accent-red-600" />
                 Active
               </label>
               <Button>Save</Button>
@@ -127,7 +131,7 @@ async function ServicesAdmin() {
               <Input name="basePrice" type="number" min="1" placeholder="Base price" required />
               <Input name="turnaround" type="number" min="1" placeholder="Days" required />
               <label className="flex items-center gap-2 text-sm text-muted-foreground">
-                <input name="active" type="checkbox" defaultChecked className="size-4 accent-violet-500" />
+                <input name="active" type="checkbox" defaultChecked className="size-4 accent-red-600" />
                 Active
               </label>
             </div>
@@ -161,28 +165,90 @@ async function ServicesAdmin() {
 }
 
 async function PortfolioAdmin() {
-  const items = hasDatabaseUrl() ? await prisma.portfolioItem.findMany({ orderBy: { createdAt: "desc" }, take: 30 }).catch(() => []) : [];
+  const items = await getAdminPortfolioItems(30);
 
   return (
-    <AdminFrame title="Edit Portfolio" description="Add new work samples, choose categories, and feature the strongest studio projects.">
+    <AdminFrame title="Portfolio Manager" description="Upload new work, edit project details, control publishing, and remove portfolio items from the public gallery.">
       <Card>
-        <form action={savePortfolioAction} className="grid gap-4">
+        <div className="mb-5">
+          <h2 className="text-xl font-semibold">Add portfolio item</h2>
+          <p className="mt-1 text-sm text-muted-foreground">Upload an image from your laptop or paste an image URL.</p>
+        </div>
+        <form action={savePortfolioAction} encType="multipart/form-data" className="grid gap-4">
           <div className="grid gap-3 md:grid-cols-2">
             <Input name="title" placeholder="Project title" required />
             <Input name="category" placeholder="Category" required />
           </div>
           <Textarea name="description" placeholder="Project description" required />
-          <Input name="imageUrl" placeholder="Image URL" required />
+          <div className="grid gap-3 md:grid-cols-2">
+            <Input name="imageFile" type="file" accept="image/*" />
+            <Input name="imageUrl" placeholder="Optional image URL" />
+          </div>
           <Input name="tags" placeholder="Tags separated by commas" />
-          <label className="flex items-center gap-2 text-sm text-muted-foreground">
-            <input name="featured" type="checkbox" className="size-4 accent-violet-500" />
-            Feature this project
-          </label>
+          <div className="flex flex-wrap gap-4">
+            <label className="flex items-center gap-2 text-sm text-muted-foreground">
+              <input name="featured" type="checkbox" className="size-4 accent-red-600" />
+              Feature this project
+            </label>
+            <label className="flex items-center gap-2 text-sm text-muted-foreground">
+              <input name="published" type="checkbox" defaultChecked className="size-4 accent-red-600" />
+              Publish on website
+            </label>
+          </div>
           <Button>Save portfolio item</Button>
         </form>
       </Card>
-      <div className="mt-6">
-        <DataTable title="Portfolio items" rows={items.length ? items.map((item) => ({ Title: item.title, Category: item.category, Featured: item.featured ? "Yes" : "No", Published: item.published ? "Yes" : "No" })) : [{ Title: "No portfolio items", Category: "-", Featured: "-", Published: "-" }]} />
+
+      <div className="mt-6 grid gap-4">
+        {items.length ? items.map((item) => (
+          <Card key={item.id} className="grid gap-5 xl:grid-cols-[220px_1fr]">
+            <div className="overflow-hidden rounded-xl border border-white/10 bg-black/25">
+              <img src={item.imageUrl} alt={item.title} className="aspect-[4/3] w-full object-cover" />
+            </div>
+            <div className="grid gap-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">{item.category}</p>
+                  <h2 className="mt-1 text-xl font-semibold">{item.title}</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {item.featured ? "Featured" : "Standard"} - {item.published ? "Published" : "Hidden"}
+                  </p>
+                </div>
+                <form action={deletePortfolioAction}>
+                  <input type="hidden" name="id" value={item.id} />
+                  <Button variant="destructive" size="sm">Delete</Button>
+                </form>
+              </div>
+
+              <form action={savePortfolioAction} encType="multipart/form-data" className="grid gap-4">
+                <input type="hidden" name="id" value={item.id} />
+                <div className="grid gap-3 md:grid-cols-2">
+                  <Input name="title" defaultValue={item.title} required />
+                  <Input name="category" defaultValue={item.category} required />
+                </div>
+                <Textarea name="description" defaultValue={item.description} required />
+                <div className="grid gap-3 md:grid-cols-2">
+                  <Input name="imageFile" type="file" accept="image/*" />
+                  <Input name="imageUrl" defaultValue={item.imageUrl} />
+                </div>
+                <Input name="tags" defaultValue={item.tags.join(", ")} placeholder="Tags separated by commas" />
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div className="flex flex-wrap gap-4">
+                    <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <input name="featured" type="checkbox" defaultChecked={item.featured} className="size-4 accent-red-600" />
+                      Featured
+                    </label>
+                    <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <input name="published" type="checkbox" defaultChecked={item.published} className="size-4 accent-red-600" />
+                      Published
+                    </label>
+                  </div>
+                  <Button>Save changes</Button>
+                </div>
+              </form>
+            </div>
+          </Card>
+        )) : <EmptyState text="No portfolio items yet. Add the first project above." />}
       </div>
     </AdminFrame>
   );
@@ -295,7 +361,7 @@ async function CmsAdmin() {
             <Textarea name="content" placeholder="Post content" required />
             <Input name="coverImage" placeholder="Cover image URL" />
             <label className="flex items-center gap-2 text-sm text-muted-foreground">
-              <input name="published" type="checkbox" className="size-4 accent-violet-500" />
+              <input name="published" type="checkbox" className="size-4 accent-red-600" />
               Publish
             </label>
             <Button>Save post</Button>
@@ -352,7 +418,7 @@ async function SecurityAdmin() {
             <Input name="key" placeholder="Feature key" required />
             <Input name="description" placeholder="Description" />
             <label className="flex items-center gap-2 text-sm text-muted-foreground">
-              <input name="enabled" type="checkbox" className="size-4 accent-violet-500" />
+              <input name="enabled" type="checkbox" className="size-4 accent-red-600" />
               Enabled
             </label>
             <Button>Save toggle</Button>
@@ -439,7 +505,7 @@ function EmptyState({ text }: { text: string }) {
 async function OrdersAdminV2() {
   const [orders, designers] = hasDatabaseUrl()
     ? await Promise.all([
-        prisma.order.findMany({ include: { client: true, designer: true, service: true }, orderBy: { createdAt: "desc" }, take: 30 }).catch(() => []),
+        prisma.order.findMany({ include: { client: true, designer: true, service: true, files: true }, orderBy: { createdAt: "desc" }, take: 30 }).catch(() => []),
         prisma.user.findMany({ where: { role: "DESIGNER", isActive: true }, select: { id: true, name: true, email: true }, orderBy: { name: "asc" } }).catch(() => [])
       ])
     : [[], []];
@@ -448,33 +514,74 @@ async function OrdersAdminV2() {
     <AdminFrame title="Order Assignment And Status" description="Assign designers, update project status, track deadlines, and keep clients informed.">
       <StatGrid stats={[{ label: "Total orders", value: orders.length }, { label: "Assigned", value: orders.filter((order) => Boolean(order.designerId)).length }, { label: "In review", value: orders.filter((order) => order.status === "IN_REVIEW").length }, { label: "Completed", value: orders.filter((order) => order.status === "COMPLETED").length }]} />
       <div className="mt-6 grid gap-4">
-        {orders.length ? orders.map((order) => (
-          <Card key={order.id} className="grid gap-4">
-            <div>
-              <p className="text-xs text-muted-foreground">{order.orderNumber} - {order.service.name}</p>
-              <h2 className="mt-1 text-xl font-semibold">{order.title}</h2>
-              <p className="mt-2 text-sm text-muted-foreground">Client: {order.client.name ?? order.client.email} - Designer: {order.designer?.name ?? "Unassigned"} - Budget: {formatCurrency(String(order.budget))}</p>
-            </div>
-            <div className="grid gap-3 xl:grid-cols-2">
-              <form action={assignOrderAction} className="grid gap-3 sm:grid-cols-[1fr_auto]">
-                <input type="hidden" name="orderId" value={order.id} />
-                <select name="designerId" defaultValue={order.designerId ?? ""} className={selectClass} required>
-                  <option value="">Assign designer</option>
-                  {designers.map((designer) => <option key={designer.id} value={designer.id}>{designer.name ?? designer.email}</option>)}
-                </select>
-                <Button>Assign</Button>
-              </form>
-              <form action={updateOrderStatusAction} className="grid gap-3 sm:grid-cols-[170px_1fr_auto]">
-                <input type="hidden" name="orderId" value={order.id} />
-                <select name="status" defaultValue={order.status} className={selectClass}>
-                  {Object.values(OrderStatus).map((status) => <option key={status} value={status}>{status}</option>)}
-                </select>
-                <Input name="note" placeholder="Status note" />
-                <Button>Update</Button>
-              </form>
-            </div>
-          </Card>
-        )) : <EmptyState text="No orders yet." />}
+        {orders.length ? orders.map((order) => {
+          const deliverables = order.files.filter((file) => file.kind === "DELIVERABLE");
+          return (
+            <Card key={order.id} className="grid gap-5">
+              <div>
+                <p className="text-xs text-muted-foreground">{order.orderNumber} - {order.service.name}</p>
+                <h2 className="mt-1 text-xl font-semibold">{order.title}</h2>
+                <p className="mt-2 text-sm text-muted-foreground">Client: {order.client.name ?? order.client.email} - Designer: {order.designer?.name ?? "Unassigned"} - Budget: {formatCurrency(String(order.budget))}</p>
+              </div>
+              <div className="grid gap-3 xl:grid-cols-2">
+                <form action={assignOrderAction} className="grid gap-3 sm:grid-cols-[1fr_auto]">
+                  <input type="hidden" name="orderId" value={order.id} />
+                  <select name="designerId" defaultValue={order.designerId ?? ""} className={selectClass} required>
+                    <option value="">Assign designer</option>
+                    {designers.map((designer) => <option key={designer.id} value={designer.id}>{designer.name ?? designer.email}</option>)}
+                  </select>
+                  <Button>Assign</Button>
+                </form>
+                <form action={updateOrderStatusAction} className="grid gap-3 sm:grid-cols-[170px_1fr_auto]">
+                  <input type="hidden" name="orderId" value={order.id} />
+                  <select name="status" defaultValue={order.status} className={selectClass}>
+                    {Object.values(OrderStatus).map((status) => <option key={status} value={status}>{status}</option>)}
+                  </select>
+                  <Input name="note" placeholder="Status note" />
+                  <Button>Update</Button>
+                </form>
+              </div>
+
+              <div className="rounded-xl border border-white/10 bg-black/20 p-4">
+                <h3 className="font-semibold">Design delivery</h3>
+                <form action={uploadCompletedDesignAction} encType="multipart/form-data" className="mt-4 grid gap-3 lg:grid-cols-[1fr_1fr_auto]">
+                  <input type="hidden" name="orderId" value={order.id} />
+                  <Input name="deliverable" type="file" accept="image/*,.pdf,.zip" required />
+                  <Input name="note" placeholder="Client update note" defaultValue="Watermarked preview uploaded for client review" />
+                  <Button>Upload completed design</Button>
+                </form>
+
+                <div className="mt-4 grid gap-3">
+                  {deliverables.length ? deliverables.map((file) => (
+                    <div key={file.id} className="grid gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-3 lg:grid-cols-[1fr_auto] lg:items-center">
+                      <div>
+                        <p className="text-sm font-medium">{file.publicId}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {file.downloadAuthorized ? "Original download is unlocked for the client." : "Client can only view the watermarked preview."}
+                        </p>
+                        {file.previewSecureUrl ? (
+                          <a href={file.previewSecureUrl} target="_blank" rel="noreferrer" className="mt-2 inline-flex text-sm font-semibold text-primary">View watermarked preview</a>
+                        ) : (
+                          <p className="mt-2 text-sm text-muted-foreground">Preview not available for this file type.</p>
+                        )}
+                      </div>
+                      {file.downloadAuthorized ? (
+                        <Button asChild variant="outline">
+                          <a href={file.secureUrl} target="_blank" rel="noreferrer">Open original</a>
+                        </Button>
+                      ) : (
+                        <form action={authorizeDeliverableDownloadAction}>
+                          <input type="hidden" name="fileId" value={file.id} />
+                          <Button>Authorize Download</Button>
+                        </form>
+                      )}
+                    </div>
+                  )) : <p className="text-sm text-muted-foreground">No completed designs uploaded yet.</p>}
+                </div>
+              </div>
+            </Card>
+          );
+        }) : <EmptyState text="No orders yet." />}
       </div>
     </AdminFrame>
   );

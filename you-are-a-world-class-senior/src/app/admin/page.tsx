@@ -1,23 +1,27 @@
+import { auth } from "@/auth";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { DataTable, RevenueBars, StatGrid } from "@/components/dashboard-widgets";
 import { prisma } from "@/lib/db";
 import { hasDatabaseUrl } from "@/lib/env";
+import { formatCurrency } from "@/lib/utils";
 
 export default async function AdminPanelPage() {
+  const session = await auth();
+  const useDatabase = hasDatabaseUrl() && !session?.user.id.startsWith("local-");
   const [users, orders, revenue, tickets, services, portfolio, subscribers] = await Promise.all([
-    hasDatabaseUrl() ? prisma.user.count().catch(() => 0) : 0,
-    hasDatabaseUrl() ? prisma.order.count().catch(() => 0) : 0,
-    hasDatabaseUrl() ? prisma.payment.aggregate({ _sum: { amount: true } }).catch(() => ({ _sum: { amount: 0 } })) : { _sum: { amount: 0 } },
-    hasDatabaseUrl() ? prisma.contactTicket.count().catch(() => 0) : 0,
-    hasDatabaseUrl() ? prisma.service.count().catch(() => 0) : 0,
-    hasDatabaseUrl() ? prisma.portfolioItem.count().catch(() => 0) : 0,
-    hasDatabaseUrl() ? prisma.newsletterSubscriber.count().catch(() => 0) : 0
+    useDatabase ? prisma.user.count().catch(() => 0) : 0,
+    useDatabase ? prisma.order.count().catch(() => 0) : 0,
+    useDatabase ? prisma.payment.aggregate({ _sum: { amount: true } }).catch(() => ({ _sum: { amount: 0 } })) : { _sum: { amount: 0 } },
+    useDatabase ? prisma.contactTicket.count().catch(() => 0) : 0,
+    useDatabase ? prisma.service.count().catch(() => 0) : 0,
+    useDatabase ? prisma.portfolioItem.count().catch(() => 0) : 0,
+    useDatabase ? prisma.newsletterSubscriber.count().catch(() => 0) : 0
   ]);
 
   return (
     <DashboardShell role="ADMIN">
-      <div className="mb-6 rounded-2xl border border-violet-400/30 bg-violet-500/10 p-5">
-        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-violet-200">Secure admin panel</p>
+      <div className="mb-6 rounded-2xl border border-red-500/30 bg-red-600/10 p-5 shadow-glow">
+        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-amber-300">Secure admin panel</p>
         <h1 className="mt-2 text-3xl font-black">Papa Sami Studio Admin</h1>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
           This area is separated from client pages and protected by admin-only access checks.
@@ -27,7 +31,7 @@ export default async function AdminPanelPage() {
         stats={[
           { label: "Users", value: users, helper: "Clients, designers, admins" },
           { label: "Orders", value: orders, helper: "All project states" },
-          { label: "Revenue", value: `$${revenue._sum.amount ?? 0}`, helper: "Stripe, Paystack, manual" },
+          { label: "Revenue", value: formatCurrency(String(revenue._sum.amount ?? 0)), helper: "Stripe, Paystack, manual" },
           { label: "Inbox", value: tickets, helper: "Contact and support" }
         ]}
       />

@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { serviceCategories } from "@/lib/catalog";
+import { formatCurrency } from "@/lib/utils";
 
 type ActionState = { ok?: boolean; message?: string } | undefined;
 
@@ -38,11 +39,28 @@ export function ContactForm() {
 
 export function RegisterForm() {
   const [state, action, pending] = useActionState(registerAction, undefined as ActionState);
+  const [password, setPassword] = useState("");
+  const passwordRules = [
+    { label: "At least 8 characters", met: password.length >= 8 },
+    { label: "At least 1 uppercase letter", met: /[A-Z]/.test(password) },
+    { label: "At least 1 number", met: /[0-9]/.test(password) }
+  ];
+
   return (
     <form action={action} className="grid gap-4">
       <Input name="name" placeholder="Full name" required />
       <Input name="email" type="email" placeholder="Email address" required />
-      <Input name="password" type="password" placeholder="Password" required />
+      <Input name="password" type="password" placeholder="Password" value={password} onChange={(event) => setPassword(event.target.value)} required />
+      <div className="rounded-xl border border-amber-200/15 bg-black/25 p-4 text-sm text-muted-foreground">
+        <p className="font-semibold text-white">Password requirements</p>
+        <ul className="mt-2 grid gap-1">
+          {passwordRules.map((rule) => (
+            <li key={rule.label} className={rule.met ? "font-medium text-emerald-300" : "text-muted-foreground"}>
+              {rule.met ? "✓ " : ""}{rule.label}
+            </li>
+          ))}
+        </ul>
+      </div>
       <input type="hidden" name="role" value="CLIENT" />
       <Button disabled={pending}>{pending ? "Creating account..." : "Create account"}</Button>
       {state?.message ? <p className="text-sm text-red-300">{state.message}</p> : null}
@@ -70,7 +88,7 @@ export function LoginForm() {
         <Input name="email" type="email" placeholder="Email address" required />
         <Input name="password" type="password" placeholder="Password" required />
         <label className="flex items-center gap-2 text-sm text-muted-foreground">
-          <input name="remember" type="checkbox" className="size-4 accent-violet-500" />
+          <input name="remember" type="checkbox" className="size-4 accent-red-600" />
           Remember me
         </label>
         <Button disabled={pending}>{pending ? "Signing in..." : "Login"}</Button>
@@ -151,7 +169,7 @@ export function DesignRequestForm({ services, client }: { services: { id: string
       <div className="grid gap-4 md:grid-cols-[1fr_auto] md:items-end">
         <div>
           <label className="mb-2 block text-sm text-muted-foreground" htmlFor="serviceId">Design type</label>
-          <select id="serviceId" name="serviceId" value={serviceId} onChange={(event) => setServiceId(event.target.value)} className="h-11 w-full rounded-xl border border-white/10 bg-[#0c1024] px-4 text-sm" required>
+          <select id="serviceId" name="serviceId" value={serviceId} onChange={(event) => setServiceId(event.target.value)} className="h-11 w-full rounded-xl border border-white/10 bg-[#130d09] px-4 text-sm" required>
             {services.length ? null : <option value="">No services available</option>}
             {services.map((service) => (
               <option key={service.id} value={service.id}>
@@ -162,7 +180,7 @@ export function DesignRequestForm({ services, client }: { services: { id: string
         </div>
         <div className="rounded-xl border border-primary/30 bg-primary/10 px-5 py-3 text-sm">
           <span className="text-muted-foreground">Price</span>
-          <div className="text-2xl font-black">${selected ? Number(selected.basePrice).toFixed(2) : "0.00"}</div>
+          <div className="text-2xl font-black">{formatCurrency(selected ? Number(selected.basePrice) : 0)}</div>
         </div>
       </div>
 
@@ -190,7 +208,7 @@ export function DesignRequestForm({ services, client }: { services: { id: string
         <div className="mt-4 grid gap-2 text-sm text-muted-foreground">
           <p><span className="text-white">Client:</span> {client.name ?? client.email}</p>
           <p><span className="text-white">Service:</span> {selected?.name ?? "Choose a design type"}</p>
-          <p><span className="text-white">Price:</span> ${selected ? Number(selected.basePrice).toFixed(2) : "0.00"}</p>
+          <p><span className="text-white">Price:</span> {formatCurrency(selected ? Number(selected.basePrice) : 0)}</p>
           <p><span className="text-white">Project:</span> {projectName || "Not entered"}</p>
           <p><span className="text-white">Deadline:</span> {deadline || "Not selected"}</p>
         </div>
@@ -218,7 +236,7 @@ export function ServiceExplorer() {
           <Search className="absolute left-3 top-3 size-5 text-muted-foreground" />
           <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search services" className="pl-10" />
         </div>
-        <select value={sort} onChange={(event) => setSort(event.target.value)} className="h-11 rounded-xl border border-white/10 bg-[#0c1024] px-4 text-sm">
+        <select value={sort} onChange={(event) => setSort(event.target.value)} className="h-11 rounded-xl border border-white/10 bg-[#130d09] px-4 text-sm">
           <option value="featured">Featured</option>
           <option value="az">A-Z</option>
         </select>
@@ -230,7 +248,7 @@ export function ServiceExplorer() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {sorted.map((category) => (
           <Card key={category} className="group transition hover:-translate-y-1 hover:border-primary/40">
-            <div className="text-sm text-primary">From $49</div>
+            <div className="text-sm text-primary">From {formatCurrency(49)}</div>
             <h3 className="mt-3 text-lg font-semibold">{category}</h3>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">Campaign-ready visuals with editable files, revisions, and fast delivery.</p>
             <Button className="mt-5 w-full" variant="outline" asChild>

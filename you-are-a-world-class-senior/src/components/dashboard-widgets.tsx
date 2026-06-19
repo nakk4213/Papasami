@@ -23,7 +23,7 @@ export function RevenueBars({ values }: { values: number[] }) {
       <div className="mt-6 flex h-48 items-end gap-3">
         {values.map((value, index) => (
           <div key={index} className="flex flex-1 flex-col items-center gap-2">
-            <div className="w-full rounded-t-xl bg-gradient-to-t from-violet-600 to-blue-500" style={{ height: `${(value / max) * 100}%` }} />
+            <div className="w-full rounded-t-xl bg-gradient-to-t from-red-700 via-red-500 to-amber-400" style={{ height: `${(value / max) * 100}%` }} />
             <span className="text-xs text-muted-foreground">{formatCurrency(value).replace(".00", "")}</span>
           </div>
         ))}

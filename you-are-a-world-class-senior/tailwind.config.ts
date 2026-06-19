@@ -25,7 +25,7 @@ const config: Config = {
         sm: "calc(var(--radius) - 4px)"
       },
       boxShadow: {
-        glow: "0 0 80px rgba(99,102,241,.28)"
+        glow: "0 0 70px rgba(230,0,18,.24), 0 0 34px rgba(240,150,42,.14)"
       }
     }
   },
