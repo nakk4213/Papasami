@@ -29,6 +29,12 @@ export async function uploadFileToCloudinary(file: File, folder = "papa-sami-stu
   if (!hasCloudinaryConfig()) return null;
 
   const buffer = Buffer.from(await file.arrayBuffer());
+  return uploadBufferToCloudinary(buffer, file.name, file.type || "application/octet-stream", folder);
+}
+
+export async function uploadBufferToCloudinary(buffer: Buffer, fileName: string, mimeType: string, folder = "papa-sami-studio") {
+  if (!hasCloudinaryConfig()) return null;
+
   return new Promise<{
     publicId: string;
     url: string;
@@ -41,6 +47,9 @@ export async function uploadFileToCloudinary(file: File, folder = "papa-sami-stu
       {
         folder,
         resource_type: "auto",
+        filename_override: fileName,
+        type: "upload",
+        format: mimeType === "image/svg+xml" ? "svg" : undefined,
         use_filename: true,
         unique_filename: true,
         overwrite: false

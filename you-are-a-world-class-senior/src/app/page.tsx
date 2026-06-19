@@ -7,9 +7,16 @@ import { Card, Section } from "@/components/ui/card";
 import { Reveal } from "@/components/motion";
 import { NewsletterForm } from "@/components/forms";
 import { portfolioItems, serviceCategories } from "@/lib/catalog";
+import { getPublishedPortfolioItems } from "@/lib/portfolio-store";
 import { formatCurrency } from "@/lib/utils";
 
-export default function HomePage() {
+export default async function HomePage() {
+  const publishedPortfolio = await getPublishedPortfolioItems(6);
+  const homepagePortfolio = publishedPortfolio.length
+    ? publishedPortfolio.map((item) => ({ title: item.title, image: item.imageUrl }))
+    : portfolioItems.map((item) => ({ title: item.title, image: item.image }));
+  const heroImage = homepagePortfolio[0]?.image ?? "https://images.unsplash.com/photo-1559028012-481c04fa702d?auto=format&fit=crop&w=1200&q=80";
+
   return (
     <PublicShell>
       <section className="relative overflow-hidden">
@@ -54,7 +61,7 @@ export default function HomePage() {
           <Reveal delay={0.1}>
             <div className="grid gap-4">
               <Image
-                src="https://images.unsplash.com/photo-1559028012-481c04fa702d?auto=format&fit=crop&w=1200&q=80"
+                src={heroImage}
                 alt="Papa Sami Studio design board"
                 width={1200}
                 height={900}
@@ -62,7 +69,7 @@ export default function HomePage() {
                 className="rounded-3xl border border-white/10 object-cover shadow-glow"
               />
               <div className="grid grid-cols-3 gap-4">
-                {portfolioItems.slice(0, 3).map((item) => (
+                {homepagePortfolio.slice(0, 3).map((item) => (
                   <Image key={item.title} src={item.image} alt={item.title} width={320} height={220} className="h-28 rounded-2xl border border-white/10 object-cover" />
                 ))}
               </div>

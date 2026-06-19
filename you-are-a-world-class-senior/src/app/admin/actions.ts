@@ -24,6 +24,8 @@ async function savePortfolioImage(file: File | null) {
   const cloudUpload = await uploadFileToCloudinary(file, "papa-sami-studio/portfolio");
   if (cloudUpload?.secureUrl) return cloudUpload.secureUrl;
 
+  if (process.env.NODE_ENV === "production") return null;
+
   const uploadDir = path.join(process.cwd(), "public", "uploads", "portfolio");
   await mkdir(uploadDir, { recursive: true });
 
@@ -132,6 +134,7 @@ export async function savePortfolioAction(formData: FormData) {
       await prisma.auditLog.create({ data: { action: "PORTFOLIO_CREATED", entity: "PortfolioItem", entityId: title } });
     }
   } catch {
+    if (process.env.NODE_ENV === "production") return;
     const finalImageUrl = uploadedImage ?? imageUrl;
     if (!finalImageUrl) return;
     await saveLocalPortfolioItem({ id: id || undefined, title, category, description, imageUrl: finalImageUrl, tags, featured, published });
@@ -150,6 +153,7 @@ export async function deletePortfolioAction(formData: FormData) {
     await prisma.portfolioItem.delete({ where: { id } });
     await prisma.auditLog.create({ data: { action: "PORTFOLIO_DELETED", entity: "PortfolioItem", entityId: id } });
   } catch {
+    if (process.env.NODE_ENV === "production") return;
     await deleteLocalPortfolioItem(id);
   }
 

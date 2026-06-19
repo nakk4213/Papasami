@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { prisma } from "@/lib/db";
+import { hasCloudinaryConfig } from "@/lib/cloudinary";
 import { hasDatabaseUrl } from "@/lib/env";
 import { getAdminPortfolioItems } from "@/lib/portfolio-store";
 import { formatCurrency } from "@/lib/utils";
@@ -166,13 +167,16 @@ async function ServicesAdmin() {
 
 async function PortfolioAdmin() {
   const items = await getAdminPortfolioItems(30);
+  const cloudinaryReady = hasCloudinaryConfig();
 
   return (
     <AdminFrame title="Portfolio Manager" description="Upload new work, edit project details, control publishing, and remove portfolio items from the public gallery.">
       <Card>
         <div className="mb-5">
           <h2 className="text-xl font-semibold">Add portfolio item</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Upload an image from your laptop or paste an image URL.</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {cloudinaryReady ? "Upload an image from your laptop or paste an image URL." : "Image upload needs Cloudinary settings on your hosting account. You can still paste an image URL."}
+          </p>
         </div>
         <form action={savePortfolioAction} encType="multipart/form-data" className="grid gap-4">
           <div className="grid gap-3 md:grid-cols-2">

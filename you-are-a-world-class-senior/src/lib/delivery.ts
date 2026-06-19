@@ -1,7 +1,7 @@
 import "server-only";
 import { mkdir, writeFile } from "fs/promises";
 import path from "path";
-import { uploadFileToCloudinary } from "@/lib/cloudinary";
+import { hasCloudinaryConfig, uploadBufferToCloudinary, uploadFileToCloudinary } from "@/lib/cloudinary";
 import { slugify } from "@/lib/utils";
 
 const WATERMARK_TEXT = "PREVIEW ONLY - PAPA SAMI STUDIOS";
@@ -32,6 +32,10 @@ export async function saveUploadedFile(file: File, folder: string) {
     };
   }
 
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("Cloudinary is required for production uploads.");
+  }
+
   const uploadDir = path.join(process.cwd(), "public", "uploads", folder);
   await mkdir(uploadDir, { recursive: true });
   const fileName = `${Date.now()}-${safeFileName(file.name)}`;
@@ -49,12 +53,7 @@ export async function saveUploadedFile(file: File, folder: string) {
 }
 
 export async function createWatermarkedPreview(originalUrl: string, orderId: string, fileName: string) {
-  const previewDir = path.join(process.cwd(), "public", "uploads", "deliveries", orderId, "previews");
-  await mkdir(previewDir, { recursive: true });
-
   const previewName = `${Date.now()}-${safeFileName(fileName, "preview")}.svg`;
-  const previewPath = path.join(previewDir, previewName);
-  const publicUrl = `/uploads/deliveries/${orderId}/previews/${previewName}`;
   const escapedUrl = xmlEscape(originalUrl);
   const escapedText = xmlEscape(WATERMARK_TEXT);
 
@@ -71,6 +70,19 @@ export async function createWatermarkedPreview(originalUrl: string, orderId: str
   </g>
 </svg>`;
 
+  if (hasCloudinaryConfig()) {
+    const cloudUpload = await uploadBufferToCloudinary(Buffer.from(svg, "utf8"), previewName, "image/svg+xml", `papa-sami-studio/deliveries/${orderId}/previews`);
+    if (cloudUpload?.secureUrl) return cloudUpload.secureUrl;
+  }
+
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("Cloudinary is required for production previews.");
+  }
+
+  const previewDir = path.join(process.cwd(), "public", "uploads", "deliveries", orderId, "previews");
+  await mkdir(previewDir, { recursive: true });
+  const previewPath = path.join(previewDir, previewName);
+  const publicUrl = `/uploads/deliveries/${orderId}/previews/${previewName}`;
   await writeFile(previewPath, svg, "utf8");
   return publicUrl;
 }
